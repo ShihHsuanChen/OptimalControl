@@ -2,6 +2,7 @@
 function infidelity = calcInfidelity(pars)
 % pars : parameters to be optimized
 
+    global T0;
     global ParameterArray;
     ParameterArray = pars;
     
@@ -10,7 +11,7 @@ function infidelity = calcInfidelity(pars)
                  0 0 0 1 ; 
                  0 0 1 0 ];
     t_init = 0;
-    t_fin  = 0.001;
+    t_fin  = 2*T0;
     U_init = eye(4);
     U_fin  = EvolveSystem(U_init,t_init,t_fin);
 
