@@ -1,10 +1,13 @@
 % Optimizer.m
+% Nelder-Mead Method
 
 %function [para_best, record_x, record_y] = Optimizer(costFunction,parameters)
-function para_best = Optimizer(costfunction,parameters)
+function [para_best,cost_best] = Optimizer(costfunction,parameters)
 % costfunction : a function to calculate infidelity with a parameter set.
 %                Should be a object of function such as @Myfun
 % parameters   : parametersets [1xn array]
+% para_best    : optimized result (parameter)
+% cost_best    : optimized result (cost)
 
     X0 = reshape(parameters,1,[]);
     costfunction = fcnchk(costfunction);
@@ -39,12 +42,10 @@ function para_best = Optimizer(costfunction,parameters)
     [F_arr,Index] = sort(F_arr);
     X_arr = X_arr(Index,:);
 
-    % Main iteration
-
     Cost_Container = [];
-
     iterNo = 0;
-
+    
+    % Main iteration
     while max(max(abs(X_arr(2:dim+1,:)-X_arr(1:dim,:)))) >= scalefactor*tol 
         if ct > max_feval
             break;
@@ -123,4 +124,5 @@ function para_best = Optimizer(costfunction,parameters)
     
     para_best = X_arr(Index,:);
     para_best = para_best(1,:);
+    cost_best = F_arr(1);
 end
