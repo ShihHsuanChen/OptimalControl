@@ -3,7 +3,7 @@
 clear all;
 figure(1);
 % Set fix parameters
-global B0 gamma_e A1 A2 J T0 W0;
+
 % Energy  : in unit [meV]
 % h-bar,c : set to be 1 
 % B0      : strength of stationary magnetic field (alone Z-axis)
@@ -15,62 +15,66 @@ global B0 gamma_e A1 A2 J T0 W0;
 %           in unit meV/h-bar^2
 % A1, A2  : electron-nucleus interaction term : Hen = A * Se1。Sn1
 %           in unit meV/h-bar^2
-% T0      : characteristic time: use 4pi/gamma_e/B0
 
-B0 = 118.34; % 2T
+
+B0 = 59.17; % 2T
 gamma_e = 1.959;
-A1 = B0*gamma_e/100;
-A2 = B0*gamma_e/100;
+A1 = B0*gamma_e/1000;
+A2 = B0*gamma_e/1000;
 J  = B0*gamma_e/10000;
-T0 = 4*pi/gamma_e/B0;
-W0 = gamma_e*B0/2;
 
 % Parameter set (to be optimized)
-% B1x = B0( a1x*cos(p*W0*t) + b1x*cos(2*p*W0*t) )
-% B1y = B0( a1y*sin(p*W0*t) + b1y*sin(2*p*W0*t) )
-% B2x = B0( a2x*cos(p*W0*t) + b2x*cos(2*p*W0*t) )
-% B2y = B0( a2x*sin(p*W0*t) + b2x*sin(2*p*W0*t) )
-a1x = 0.1;
-a1y = 0.1;
-a2x = 0.1;
-a2y = 0.1;
-b1x = 0.05;
-b1y = 0.05;
-b2x = 0.05;
-b2y = 0.05;
-p   = 0.8;
+% B1x = B0( a1x*cos(p*W0*T0*t) + b1x*cos(2*p*W0*T0*t) )
+% B1y = B0( a1y*sin(p*W0*T0*t) + b1y*sin(2*p*W0*T0*t) )
+% B2x = B0( a2x*cos(p*W0*T0*t) + b2x*cos(2*p*W0*T0*t) )
+% B2y = B0( a2x*sin(p*W0*T0*t) + b2x*sin(2*p*W0*T0*t) )
+a1x = 0.001;
+a1y = 0.001;
+a2x = 0.001;
+a2y = 0.001;
+b1x = 0.0005;
+b1y = 0.0005;
+b2x = 0.0005;
+b2y = 0.0005;
+p   = 2;
 
-Parameters = [ a1x;a1y;a2x;a2y;b1x;b1y;b2x;b2y;p];
+Parameters = [a1x;b1x;a1y;b1y;a2x;b2x;a2y;b2y;p];
 
-%[BestParameters, BestInfidelity] = Optimizer(@calcInfidelity,Parameters);
-options = optimset('Display','iter','PlotFcns',@optimplotfval,'TolFun',0.01);
-[BestParameters, BestInfidelity] = fminsearch(@calcInfidelity,Parameters,options);
-
-disp(BestInfidelity)
-disp(BestParameters)
-
-% re-calculate result
 ti = 0;
-tf = 2*T0;
-U_init = eye(4);
+tf = 0.2;
+Ui = eye(4);
 U_target = [ 1 0 0 0 ;
              0 1 0 0 ;
              0 0 0 1 ; 
              0 0 1 0 ];
 
-Ui = reshape(U_init,[],1);
-[Tsol,Usol] = ode45(@Schrodinger_H_p_rf,[ti tf],Ui);
+Model = model(gamma_e,A1,A2,J,B0,Parameters,ti,tf,Ui,U_target);
+calcInfidelity = @Model.calcInfidelity;
+         
+%[BestParameters, BestInfidelity] = Optimizer(@calcInfidelity,Parameters);
+options = optimset('Display','iter','PlotFcns',@optimplotfval,'TolFun',1E-6,'TolX',1E-6);
+[BestParameters, BestInfidelity] = fminsearch(calcInfidelity,Parameters,options);
+
+disp(BestInfidelity)
+disp(BestParameters)
+
+% re-calculate result
+
+%Model = model(gamma_e,A1,A2,J,B0,BestParameters,ti,tf,Ui,U_target);
+Schrodinger = @Model.Schrodinger_H_p_rf;
+[Tsol,Usol] = ode45(Schrodinger,[ti tf],Ui);
 
 T_arr = Tsol';
-infidelity_arr = zeros(1,length(Tsol));
-B1x_arr = zeros(1,length(Tsol));
-B1y_arr = zeros(1,length(Tsol));
-B2x_arr = zeros(1,length(Tsol));
-B2y_arr = zeros(1,length(Tsol));
-P1_arr = zeros(4,length(Tsol));
-P2_arr = zeros(4,length(Tsol));
+dim = length(Tsol);
+infidelity_arr  = zeros(1,dim);
+B1x_arr         = zeros(1,dim);
+B1y_arr         = zeros(1,dim);
+B2x_arr         = zeros(1,dim);
+B2y_arr         = zeros(1,dim);
+P1_arr          = zeros(4,dim);
+P2_arr          = zeros(4,dim);
 
-for j = 1:length(Tsol)
+for j = 1:dim
     Uf = reshape(Usol(j,:),[],4);
     
     % infidelity
@@ -78,10 +82,10 @@ for j = 1:length(Tsol)
     infidelity_arr(j) = infidelity;
     
     % magnetic field
-    B1x = MagneticField_X1(Tsol(j));
-    B1y = MagneticField_Y1(Tsol(j));
-    B2x = MagneticField_X2(Tsol(j));
-    B2y = MagneticField_Y2(Tsol(j));
+    B1x = Model.ControlField.MagneticField_X1(Tsol(j));
+    B1y = Model.ControlField.MagneticField_Y1(Tsol(j));
+    B2x = Model.ControlField.MagneticField_X2(Tsol(j));
+    B2y = Model.ControlField.MagneticField_Y2(Tsol(j));
     B1x_arr(j) = B1x;
     B1y_arr(j) = B1y;
     B2x_arr(j) = B2x;
@@ -93,16 +97,16 @@ for j = 1:length(Tsol)
     % P1: probability of the first electron to be +
     % P2: probability of the second electron to be +
     for k = 1:4
-        psi = Uf * U_init(:,1);
+        psi = Uf * Ui(:,k);
         P1(k) = psi(1)*psi(1)'+psi(2)*psi(2)';
-        P2(k) = psi(2)*psi(2)'+psi(3)*psi(3)';
+        P2(k) = psi(1)*psi(1)'+psi(3)*psi(3)';
     end
     P1_arr(:,j) = P1;
     P2_arr(:,j) = P2;
 end
 
 % Draw plots
-figure(2);
+figure(1);
 
 % magnetic field
 subplot(5,2,1);
@@ -119,54 +123,19 @@ plot(T_arr,B2y_arr,'-k');
 
 % Probibility
 subplot(5,2,2);
-plot(T_arr,P1_arr(1,j),'-b',T_arr,P2_arr(1,j),'-r');
+plot(T_arr,P1_arr(1,:),'-b',T_arr,P2_arr(1,:),'-r');
 
 subplot(5,2,4);
-plot(T_arr,P1_arr(2,j),'-b',T_arr,P2_arr(2,j),'-r');
+plot(T_arr,P1_arr(2,:),'-b',T_arr,P2_arr(2,:),'-r');
 
 subplot(5,2,6);
-plot(T_arr,P1_arr(3,j),'-b',T_arr,P2_arr(3,j),'-r');
+plot(T_arr,P1_arr(3,:),'-b',T_arr,P2_arr(3,:),'-r');
 
 subplot(5,2,8);
-plot(T_arr,P1_arr(4,j),'-b',T_arr,P2_arr(4,j),'-r');
+plot(T_arr,P1_arr(4,:),'-b',T_arr,P2_arr(4,:),'-r');
 
 % infidelity
 subplot(5,2,10);
 plot(T_arr,infidelity_arr,'-b');
 
-
-function B = MagneticField_X1(t)
-    global B0 W0;
-    global ParameterArray;
-    a = ParameterArray(1);
-    b = ParameterArray(2);
-    p = ParameterArray(9);
-    B = a*B0*cos(p*W0*t) + b*B0*cos(2*p*W0*t);
-end
-
-function B = MagneticField_Y1(t)
-    global B0 W0;
-    global ParameterArray;
-    a = ParameterArray(3);
-    b = ParameterArray(4);
-    p = ParameterArray(9);
-    B = a*B0*sin(p*W0*t) + b*B0*cos(2*p*W0*t) ;
-end
-
-function B = MagneticField_X2(t)
-    global B0 W0;
-    global ParameterArray;
-    a = ParameterArray(5);
-    b = ParameterArray(6);
-    p = ParameterArray(9);
-    B = a*B0*cos(p*W0*t) + b*B0*cos(2*p*W0*t) ;
-end
-
-function B = MagneticField_Y2(t)
-    global B0 W0;
-    global ParameterArray;
-    a = ParameterArray(7);
-    b = ParameterArray(8);
-    p = ParameterArray(9);
-    B = a*B0*sin(p*W0*t) + b*B0*cos(2*p*W0*t) ;
-end
+saveas(gcf,'result.fig')
