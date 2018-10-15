@@ -17,52 +17,50 @@ figure(1);
 %           in unit meV/h-bar^2
 
 
-B0 = 59.17; % 2T
+B0 = 59.17; % 1T
 gamma_e = 1.959;
-A1 = B0*gamma_e/1000;
-A2 = B0*gamma_e/1000;
-J  = B0*gamma_e/10000;
+A1 = 0.116;%B0*gamma_e/1000;
+A2 = 0.116;%B0*gamma_e/1000;
+J  = 0.0116;%B0*gamma_e/10000;
 
 % Parameter set (to be optimized)
-% B1x = B0( a1x*cos(p*W0*T0*t) + b1x*cos(2*p*W0*T0*t) )
-% B1y = B0( a1y*sin(p*W0*T0*t) + b1y*sin(2*p*W0*T0*t) )
-% B2x = B0( a2x*cos(p*W0*T0*t) + b2x*cos(2*p*W0*T0*t) )
-% B2y = B0( a2x*sin(p*W0*T0*t) + b2x*sin(2*p*W0*T0*t) )
-a1x = 0.001;
-a1y = 0.001;
-a2x = 0.001;
-a2y = 0.001;
-b1x = 0.0005;
-b1y = 0.0005;
-b2x = 0.0005;
-b2y = 0.0005;
-p   = 2;
+% Gaussian Field
+a1x   = 0.5;
+a1y   = -1.;
+Wext1 = 0;
+phi1  = 0;
+a2x   = 2.;
+a2y   = -0.8;
+Wext2 = 0;
+phi2  = 0;
+Tw    = 0.5;
 
-Parameters = [a1x;b1x;a1y;b1y;a2x;b2x;a2y;b2y;p];
+Parameters = [a1x;a1y;Wext1;phi1;a2x;a2y;Wext2;phi2;Tw];
+ParaLimU = [ 10; 10;Wext1;phi1; 10; 10;Wext2;phi2;Tw];
+ParaLimL = [-10;-10;Wext1;phi1;-10;-10;Wext2;phi2;Tw];
 
 ti = 0;
-tf = 0.2;
 Ui = eye(4);
 U_target = [ 1 0 0 0 ;
              0 1 0 0 ;
              0 0 0 1 ; 
              0 0 1 0 ];
 
-Model = model(gamma_e,A1,A2,J,B0,Parameters,ti,tf,Ui,U_target);
+Model = model(gamma_e,A1,A2,J,B0,Parameters,ti,Ui,U_target);
 calcInfidelity = @Model.calcInfidelity;
          
 %[BestParameters, BestInfidelity] = Optimizer(@calcInfidelity,Parameters);
 options = optimset('Display','iter','PlotFcns',@optimplotfval,'TolFun',1E-6,'TolX',1E-6);
-[BestParameters, BestInfidelity] = fminsearch(calcInfidelity,Parameters,options);
+[BestParameters, BestInfidelity] = fminsearchbnd(calcInfidelity,Parameters,ParaLimL,ParaLimU,options);
 
 disp(BestInfidelity)
 disp(BestParameters)
 
 % re-calculate result
 
-%Model = model(gamma_e,A1,A2,J,B0,BestParameters,ti,tf,Ui,U_target);
+Model = model(gamma_e,A1,A2,J,B0,BestParameters,ti,Ui,U_target);
 Schrodinger = @Model.Schrodinger_H_p_rf;
-[Tsol,Usol] = ode45(Schrodinger,[ti tf],Ui);
+[Tsol,Usol] = ode45(Schrodinger,[Model.ti Model.tf],Model.Ui);
 
 T_arr = Tsol';
 dim = length(Tsol);
@@ -76,20 +74,24 @@ P2_arr          = zeros(4,dim);
 
 for j = 1:dim
     Uf = reshape(Usol(j,:),[],4);
+    if j==dim
+        save('Uf.mat','Uf','-mat');
+    end
     
     % infidelity
-    infidelity = 1-(norm(abs(trace( Uf * U_target') )))^2/16;
+    %infidelity = 1-(norm(abs(trace( Uf * U_target') )))^2/16;
+    infidelity = 1-trace( abs( Uf * U_target') )^2/16;
     infidelity_arr(j) = infidelity;
     
     % magnetic field
-    B1x = Model.ControlField.MagneticField_X1(Tsol(j));
-    B1y = Model.ControlField.MagneticField_Y1(Tsol(j));
-    B2x = Model.ControlField.MagneticField_X2(Tsol(j));
-    B2y = Model.ControlField.MagneticField_Y2(Tsol(j));
-    B1x_arr(j) = B1x;
-    B1y_arr(j) = B1y;
-    B2x_arr(j) = B2x;
-    B2y_arr(j) = B2y;
+    %B1 = Model.ControlField.MagneticField_atom1(Tsol(j));
+    %B2 = Model.ControlField.MagneticField_atom2(Tsol(j));
+    B1 = Model.ControlField.GaussianField_atom1(Tsol(j));
+    B2 = Model.ControlField.GaussianField_atom2(Tsol(j));
+    B1x_arr(j) = B1.x;
+    B1y_arr(j) = B1.y;
+    B2x_arr(j) = B2.x;
+    B2y_arr(j) = B2.y;
     
     % 4 cases : (++)>(++), (+-)>(+-), (-+)>(--), (--)>(-+)
     P1 = zeros(4,1);
