@@ -15,14 +15,14 @@ function dUdt = Schrodinger_H_p_rf(obj,t,U)
     i = sqrt(-1);
     U_m = reshape(U,[],4);
 
-    B_x1 = ControlField.MagneticField_X1(t);
-    B_y1 = ControlField.MagneticField_Y1(t);
-    B_x2 = ControlField.MagneticField_X2(t);
-    B_y2 = ControlField.MagneticField_Y2(t);
+    %B1 = ControlField.SecondOrderField_atom1(t);
+    %B2 = ControlField.SecondOrderField_atom2(t);
+    B1 = ControlField.GaussianField_atom1(t);
+    B2 = ControlField.GaussianField_atom2(t);
 
     delta_A = (A2 - A1)/2;
     ave_A = (A1 + A2)/2;
-    E_uu = gamma_e*B0/2 + J/4 + delta_A/2;
+    E_uu =  gamma_e*B0/2 + J/4 + delta_A/2;
     E_ud = -J/4 - ave_A/2;
     E_du = -J/4 + ave_A/2;
     E_dd = -gamma_e*B0/2 + J/4 - delta_A/2;
@@ -35,8 +35,8 @@ function dUdt = Schrodinger_H_p_rf(obj,t,U)
     Sigma_y = [0 -i; i  0];
     Sigma_z = [1  0; 0 -1];
     
-    P_1 = B_x1*kron(Sigma_x,eye(2) )/2 + B_y1*kron(Sigma_y,eye(2) )/2;
-    P_2 = B_x2*kron(eye(2) ,Sigma_x)/2 + B_y2*kron(eye(2) ,Sigma_y)/2;
+    P_1 = B1.x*kron(Sigma_x,eye(2) )/2 + B1.y*kron(Sigma_y,eye(2) )/2;
+    P_2 = B2.x*kron(eye(2) ,Sigma_x)/2 + B2.y*kron(eye(2) ,Sigma_y)/2;
     H_p = H  + (P_1 + P_2);
 
 %    E_w = i*(gamma_e*B0+delta_A/2)*2*pi*t;

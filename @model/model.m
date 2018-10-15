@@ -17,7 +17,7 @@ classdef model
     end
     
     methods
-        function obj = model(gamma_e,A1,A2,J,B0,ParameterArray,ti,tf,Ui,Utar)
+        function obj = model(gamma_e,A1,A2,J,B0,ParameterArray,ti,Ui,Utar)
             % W0  : characteristic angular frequency: use gamma_e*B0/2
             % T0  : characteristic time: T0 = 4pi/gamma_e/B0 = 2pi/W0
             obj.gamma_e = gamma_e;
@@ -29,7 +29,7 @@ classdef model
             obj.T0 = 2*pi/obj.W0;
             obj.ControlField = ExternalField(B0,obj.W0,obj.T0,ParameterArray);
             obj.ti = ti;
-            obj.tf = tf;
+            obj.tf = ParameterArray(9);
             obj.Ui = Ui;
             obj.Utar = Utar;
         end
